@@ -26,7 +26,10 @@ module Renderer =
     let private empty = "  "
 
     let private appendClearedLine (builder: StringBuilder) (line: string) =
-        builder.Append(line).Append("\u001b[K").AppendLine() |> ignore
+        builder.Append(line).Append("\u001b[K\r\n") |> ignore
+
+    let private appendClearedText (builder: StringBuilder) (line: string) =
+        builder.Append(line).Append("\u001b[K") |> ignore
 
     let private shapePreview kind =
         let size = Tetromino.boxSize kind
@@ -140,15 +143,25 @@ module Renderer =
         builder.ToString()
 
     let renderSmallTerminal () =
-        "\u001b[HTerminal is too small. Please resize to at least 40x24.\u001b[K\nPress Q to quit.\u001b[K\u001b[J"
+        let builder = StringBuilder()
+
+        builder.Append("\u001b[H") |> ignore
+        appendClearedText builder $"Resize to {Constants.MinTerminalColumns}x{Constants.MinTerminalRows}. Q quits."
+        builder.ToString()
 
 module Program =
-    let private terminalIsLargeEnough () =
+    let private terminalSize () =
         try
-            Console.WindowWidth >= Constants.MinTerminalColumns
-            && Console.WindowHeight >= Constants.MinTerminalRows
+            Some(Console.WindowWidth, Console.WindowHeight)
         with _ ->
-            true
+            None
+
+    let private terminalIsLargeEnough () =
+        match terminalSize () with
+        | Some(width, height) ->
+            width >= Constants.MinTerminalColumns
+            && height >= Constants.MinTerminalRows
+        | None -> true
 
     let private keyToAction (key: ConsoleKeyInfo) =
         match key.Key with
@@ -175,7 +188,7 @@ module Program =
     [<EntryPoint>]
     let main _ =
         if not (terminalIsLargeEnough ()) then
-            Console.WriteLine("Terminal must be at least 40 columns wide and 24 rows tall.")
+            Console.WriteLine($"Need {Constants.MinTerminalColumns}x{Constants.MinTerminalRows} terminal.")
             1
         else
             Console.OutputEncoding <- Encoding.UTF8
@@ -187,18 +200,25 @@ module Program =
             let mutable quitRequested = false
             let mutable lastRender = ""
             let mutable lastTick = DateTime.UtcNow
+            let mutable lastTerminalSize = terminalSize ()
 
             Console.CursorVisible <- false
             Console.Write("\u001b[2J")
 
             try
                 while running do
+                    let currentTerminalSize = terminalSize ()
+
+                    if currentTerminalSize <> lastTerminalSize then
+                        Console.Write("\u001b[2J\u001b[H")
+                        lastRender <- ""
+                        lastTerminalSize <- currentTerminalSize
+
                     if not (terminalIsLargeEnough ()) then
                         let message = Renderer.renderSmallTerminal ()
 
-                        if message <> lastRender then
-                            Console.Write(message)
-                            lastRender <- message
+                        Console.Write(message)
+                        lastRender <- message
 
                         while Console.KeyAvailable do
                             let key = Console.ReadKey(true)
