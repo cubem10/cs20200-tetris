@@ -25,6 +25,9 @@ module Renderer =
 
     let private empty = "  "
 
+    let private appendClearedLine (builder: StringBuilder) (line: string) =
+        builder.Append(line).Append("\u001b[K").AppendLine() |> ignore
+
     let private shapePreview kind =
         let size = Tetromino.boxSize kind
         let cells = Tetromino.cells kind State0 |> Set.ofList
@@ -117,7 +120,7 @@ module Renderer =
         let builder = StringBuilder()
 
         builder.Append("\u001b[H") |> ignore
-        builder.AppendLine("+--------------------+" + sideGap + (List.tryItem 0 info |> Option.defaultValue "")) |> ignore
+        appendClearedLine builder ("+--------------------+" + sideGap + (List.tryItem 0 info |> Option.defaultValue ""))
 
         for row in 0 .. Constants.Height - 1 do
             let field =
@@ -125,19 +128,19 @@ module Renderer =
                 |> String.concat ""
 
             let side = List.tryItem (row + 1) info |> Option.defaultValue ""
-            builder.AppendLine($"|{field}|{sideGap}{side}") |> ignore
+            appendClearedLine builder $"|{field}|{sideGap}{side}"
 
-        builder.AppendLine("+--------------------+") |> ignore
+        appendClearedLine builder "+--------------------+"
 
         if state.Status = GameOver then
-            builder.AppendLine("Press R to restart or Q to quit.") |> ignore
+            appendClearedLine builder "Press R to restart or Q to quit."
 
         builder.Append("\u001b[J") |> ignore
 
         builder.ToString()
 
     let renderSmallTerminal () =
-        "\u001b[HTerminal is too small. Please resize to at least 40x24.\nPress Q to quit.\u001b[J"
+        "\u001b[HTerminal is too small. Please resize to at least 40x24.\u001b[K\nPress Q to quit.\u001b[K\u001b[J"
 
 module Program =
     let private terminalIsLargeEnough () =
