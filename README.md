@@ -39,10 +39,22 @@ piece will land if you hard-drop it.
 - Rows score by the number cleared at once: 1 row = 100, 2 rows = 300, 3 rows =
   500, and 4 rows = 800.
 
-## Changes After Proposal
-Input polling is an implementation detail: normal gameplay checks queued keys about
-every 25 ms, and the undersized-terminal pause screen checks for `Q` about every
-50 ms. 
+## Requirement Changes and Justifications
+
+- The undersized-terminal pause message is shorter than the proposal text:
+  `Resize to 40x24. Q quits.` instead of
+  `Terminal is too small. Please resize to at least 40x24.` This keeps the message
+  readable in a terminal that is already too small while preserving the required
+  behavior: the game pauses, ignores gameplay keys, continues checking terminal
+  size, and allows `Q` to quit.
+- The game shows a ghost piece landing preview, which the proposal does not
+  mention. This is an added visual aid only; it does not change movement,
+  collision, scoring, locking, line clearing, piece generation, hold behavior, or
+  any game-ending rule.
+- The game uses input polling intervals of about 25 ms during gameplay and 50 ms
+  during the undersized-terminal pause screen. The proposal does not specify
+  polling timing, so these values are implementation details chosen to keep input
+  responsive without constantly redrawing the terminal.
 
 ## LLM Usage
 
