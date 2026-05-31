@@ -250,46 +250,55 @@ module Tests =
                 LockResetCount = Constants.MaxLockResets }
 
         let moved = Game.moveLeft maxed
-        Assert.equal (Some(TimeSpan.FromSeconds 0.1)) moved.LockDelay "Move reset stops after 15 resets."
+        Assert.equal (Some(TimeSpan.FromSeconds 0.1)) moved.LockDelay "Move no longer resets the timer after 15 resets."
         Assert.equal Constants.MaxLockResets moved.LockResetCount "Reset count does not exceed 15."
-        Assert.equal maxed.Current moved.Current "Capped lock-delay movement is ignored."
+        Assert.equal 3 moved.Current.Col "Movement is still allowed after 15 resets."
 
-    let cappedRotationFallsToGhostLanding () =
-        let cappedFalling =
+        let maxedOnLedge =
+            { delayed with
+                LockResetCount = Constants.MaxLockResets }
+
+        let cappedOffLedge = Game.moveRight maxedOnLedge
+        Assert.equal None cappedOffLedge.LockDelay "Moving off a ledge exits lock delay even after 15 resets."
+        Assert.equal Constants.MaxLockResets cappedOffLedge.LockResetCount "Exiting delay preserves the capped reset count."
+        Assert.equal 5 cappedOffLedge.Current.Col "Capped movement off a ledge is still applied."
+
+    let cappedRotationIsAllowedWithoutResettingDelay () =
+        let cappedResting =
             { Game.create T J with
                 Current =
                     { Kind = T
                       Rotation = State0
-                      Row = 17
+                      Row = 18
                       Col = 3 }
+                LockDelay = Some(TimeSpan.FromSeconds 0.1)
                 LockResetCount = Constants.MaxLockResets }
 
-        let expectedLanding = ghostCells cappedFalling
+        let rotated = Game.rotateClockwise cappedResting
+        Assert.equal StateR rotated.Current.Rotation "Rotation is still allowed after 15 resets."
+        Assert.equal 17 rotated.Current.Row "A capped rotation may still use a floor kick."
+        Assert.equal (Some(TimeSpan.FromSeconds 0.1)) rotated.LockDelay "Rotation no longer resets the timer after 15 resets."
+        Assert.equal Constants.MaxLockResets rotated.LockResetCount "Rotation does not increase the capped reset count."
 
-        let afterIgnoredRotate = Game.rotateClockwise cappedFalling
-        Assert.equal cappedFalling.Current afterIgnoredRotate.Current "Capped rotation cannot kick into a grounded pop position."
-
-        let afterFall = Game.advanceTime Constants.FallInterval (provider [ O ]) afterIgnoredRotate
-        Assert.equal expectedLanding (Game.currentCells afterFall |> cellSet) "The capped piece falls to the ghost landing."
-        Assert.isTrue (Option.isSome afterFall.LockDelay) "The landed capped piece enters lock delay."
-
-    let heldRotationCannotStallForever () =
-        let draw = provider [ O; I; S; Z ]
+    let cappedRestingRotationCannotExtendDelay () =
+        let draw = provider [ T ]
         let frameTime = TimeSpan.FromMilliseconds 25.0
 
         let mutable state =
-            { Game.create T J with
+            { Game.create O J with
                 Current =
-                    { Kind = T
+                    { Kind = O
                       Rotation = State0
-                      Row = 16
-                      Col = 3 } }
+                      Row = 18
+                      Col = 4 }
+                LockDelay = Some Constants.LockDelay
+                LockResetCount = Constants.MaxLockResets }
 
-        for _ in 1 .. 400 do
+        for _ in 1 .. 25 do
             state <- state |> Game.rotateClockwise |> Game.advanceTime frameTime draw
 
-        Assert.equal J state.Current.Kind "Held rotation eventually locks the grounded piece."
-        Assert.isTrue (state.Board.Count >= 4) "The spun piece is locked onto the board."
+        Assert.equal J state.Current.Kind "Capped rotation locks when the original delay expires."
+        Assert.equal 4 state.Board.Count "The capped piece is locked after the original delay expires."
 
     let movingOffLedgePreventsStaleLockExpiry () =
         let delayed =

@@ -15,8 +15,8 @@ module Program =
               "Automatic falling and lock delay work", Tests.automaticFallingAndLockDelayWork
               "Long elapsed frame stops at lock delay", Tests.longElapsedFrameStopsAtLockDelay
               "Lock delay resets are limited and can exit", Tests.lockDelayResetsAreLimitedAndCanExitDelay
-              "Capped rotation falls to ghost landing", Tests.cappedRotationFallsToGhostLanding
-              "Held rotation cannot stall forever", Tests.heldRotationCannotStallForever
+              "Capped rotation is allowed without resetting delay", Tests.cappedRotationIsAllowedWithoutResettingDelay
+              "Capped resting rotation cannot extend delay", Tests.cappedRestingRotationCannotExtendDelay
               "Moving off ledge prevents stale lock expiry", Tests.movingOffLedgePreventsStaleLockExpiry
               "Hard drop during lock delay clears timing state", Tests.hardDropDuringLockDelayClearsTimingState
               "Hold during lock delay clears timing state", Tests.holdDuringLockDelayClearsTimingState

@@ -43,9 +43,6 @@ module Game =
     let private canMoveDown board piece =
         Board.canPlace board { piece with Row = piece.Row + 1 }
 
-    let private canApplyLockDelayAdjustment state =
-        state.LockResetCount < Constants.MaxLockResets
-
     let private resetLockAfterSuccessfulAdjustment state =
         match state.LockDelay with
         | None -> state
@@ -84,7 +81,7 @@ module Game =
                     Row = state.Current.Row + dr
                     Col = state.Current.Col + dc }
 
-            if Board.canPlace state.Board moved && canApplyLockDelayAdjustment state then
+            if Board.canPlace state.Board moved then
                 { state with Current = moved }
                 |> resetLockAfterSuccessfulAdjustment
                 |> enterLockDelayIfResting
@@ -118,7 +115,7 @@ module Game =
                         Row = rotated.Row + dr
                         Col = rotated.Col + dc }
 
-                if Board.canPlace state.Board kicked && canApplyLockDelayAdjustment state then
+                if Board.canPlace state.Board kicked then
                     Some kicked
                 else
                     None)
