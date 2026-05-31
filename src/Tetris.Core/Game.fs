@@ -60,7 +60,7 @@ module Game =
             else
                 stateWithReset
 
-    let private enterLockDelayIfResting state =
+    let private enterLockDelayAfterAutomaticFall state =
         if
             state.Status = Playing
             && Option.isNone state.LockDelay
@@ -69,6 +69,28 @@ module Game =
             { state with
                 LockDelay = Some Constants.LockDelay
                 FallAccumulator = TimeSpan.Zero }
+        else
+            state
+
+    let private enterLockDelayAfterAdjustment state =
+        if
+            state.Status = Playing
+            && Option.isNone state.LockDelay
+            && not (canMoveDown state.Board state.Current)
+        then
+            if state.LockResetCount >= Constants.MaxLockResets then
+                { state with
+                    LockDelay = Some TimeSpan.Zero
+                    FallAccumulator = TimeSpan.Zero }
+            elif state.LockResetCount > 0 then
+                { state with
+                    LockDelay = Some Constants.LockDelay
+                    LockResetCount = state.LockResetCount + 1
+                    FallAccumulator = TimeSpan.Zero }
+            else
+                { state with
+                    LockDelay = Some Constants.LockDelay
+                    FallAccumulator = TimeSpan.Zero }
         else
             state
 
@@ -84,7 +106,7 @@ module Game =
             if Board.canPlace state.Board moved then
                 { state with Current = moved }
                 |> resetLockAfterSuccessfulAdjustment
-                |> enterLockDelayIfResting
+                |> enterLockDelayAfterAdjustment
             else
                 state
 
@@ -96,7 +118,7 @@ module Game =
         let moved = tryMoveBy 1 0 state
 
         if obj.ReferenceEquals(moved, state) then
-            enterLockDelayIfResting state
+            enterLockDelayAfterAdjustment state
         else
             moved
 
@@ -124,7 +146,7 @@ module Game =
                 | Some accepted ->
                     { state with Current = accepted }
                     |> resetLockAfterSuccessfulAdjustment
-                    |> enterLockDelayIfResting
+                    |> enterLockDelayAfterAdjustment
 
     let private dropToBottom (board: Board) (piece: ActivePiece) =
         let rec loop (falling: ActivePiece) =
@@ -211,9 +233,9 @@ module Game =
         if canMoveDown state.Board state.Current then
             { state with
                 Current = { state.Current with Row = state.Current.Row + 1 } }
-            |> enterLockDelayIfResting
+            |> enterLockDelayAfterAutomaticFall
         else
-            enterLockDelayIfResting state
+            enterLockDelayAfterAutomaticFall state
 
     let advanceTime elapsed drawNext state =
         if state.Status <> Playing || elapsed < TimeSpan.Zero then

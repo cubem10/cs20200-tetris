@@ -326,6 +326,26 @@ module Tests =
         Assert.equal Playing landedAgain.Status "Landing again after the reset cap does not immediately lock the piece."
         Assert.equal 1 landedAgain.Board.Count "The capped piece is not locked until the new delay expires."
 
+    let floorKickRotationCannotStallAfterResetCap () =
+        let draw = provider [ T ]
+        let frameTime = TimeSpan.FromMilliseconds 25.0
+
+        let mutable state =
+            { Game.create I J with
+                Current =
+                    { Kind = I
+                      Rotation = StateR
+                      Row = 16
+                      Col = 3 }
+                LockDelay = Some Constants.LockDelay }
+
+        for _ in 1 .. 40 do
+            state <- state |> Game.rotateClockwise |> Game.advanceTime frameTime draw
+
+        Assert.equal J state.Current.Kind "Repeated I rotations at the floor lock after the reset cap."
+        Assert.equal 4 state.Board.Count "The stalling I piece is locked onto the board."
+        Assert.equal 0 state.LockResetCount "The next piece starts with a fresh reset count."
+
     let movingOffLedgePreventsStaleLockExpiry () =
         let delayed =
             { Game.create O I with
