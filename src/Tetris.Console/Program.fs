@@ -21,6 +21,8 @@ module Renderer =
 
     let private block kind = $"{color kind}██{reset}"
 
+    let private ghostBlock kind = $"{color kind}\u001b[2m░░{reset}"
+
     let private empty = "  "
 
     let private shapePreview kind =
@@ -38,22 +40,46 @@ module Renderer =
 
               line.PadRight(8) ]
 
-    let private overlay state =
-        state.Current
+    let private pieceOverlay piece =
+        piece
         |> Piece.absoluteCells
-        |> List.map (fun position -> position, state.Current.Kind)
+        |> List.map (fun position -> position, piece.Kind)
         |> Map.ofList
 
-    let private cellText state row col =
+    let private ghostPiece state =
+        let rec drop (piece: ActivePiece) =
+            let next = { piece with Row = piece.Row + 1 }
+
+            if Board.canPlace state.Board next then
+                drop next
+            else
+                piece
+
+        drop state.Current
+
+    let private ghostPieceOverlay state =
+        if state.Status <> Playing then
+            Map.empty
+        else
+            let ghost = ghostPiece state
+
+            if ghost.Row = state.Current.Row then
+                Map.empty
+            else
+                pieceOverlay ghost
+
+    let private cellText state currentOverlay ghostOverlay row col =
         let position = Position.create row col
-        let currentOverlay = overlay state
 
         match Map.tryFind position currentOverlay with
         | Some kind -> block kind
         | None ->
             match Board.cellAt row col state.Board with
             | Some kind -> block kind
-            | None -> empty
+            | None ->
+                match Map.tryFind position ghostOverlay with
+                | Some kind -> ghostBlock kind
+                | None -> empty
 
     let private infoLines state =
         let nextPreview = shapePreview state.Next
@@ -86,14 +112,16 @@ module Renderer =
 
     let render state =
         let info = infoLines state
+        let currentOverlay = pieceOverlay state.Current
+        let ghostOverlay = ghostPieceOverlay state
         let builder = StringBuilder()
 
-        builder.Append("\u001b[H\u001b[2J") |> ignore
+        builder.Append("\u001b[H") |> ignore
         builder.AppendLine("+--------------------+" + sideGap + (List.tryItem 0 info |> Option.defaultValue "")) |> ignore
 
         for row in 0 .. Constants.Height - 1 do
             let field =
-                [ for col in 0 .. Constants.Width - 1 -> cellText state row col ]
+                [ for col in 0 .. Constants.Width - 1 -> cellText state currentOverlay ghostOverlay row col ]
                 |> String.concat ""
 
             let side = List.tryItem (row + 1) info |> Option.defaultValue ""
@@ -104,10 +132,12 @@ module Renderer =
         if state.Status = GameOver then
             builder.AppendLine("Press R to restart or Q to quit.") |> ignore
 
+        builder.Append("\u001b[J") |> ignore
+
         builder.ToString()
 
     let renderSmallTerminal () =
-        "\u001b[H\u001b[2JTerminal is too small. Please resize to at least 40x24.\nPress Q to quit."
+        "\u001b[HTerminal is too small. Please resize to at least 40x24.\nPress Q to quit.\u001b[J"
 
 module Program =
     let private terminalIsLargeEnough () =
@@ -151,10 +181,12 @@ module Program =
             let drawNext = PieceGeneration.randomGenerator random
             let mutable state = Game.create (drawNext()) (drawNext())
             let mutable running = true
+            let mutable quitRequested = false
             let mutable lastRender = ""
             let mutable lastTick = DateTime.UtcNow
 
             Console.CursorVisible <- false
+            Console.Write("\u001b[2J")
 
             try
                 while running do
@@ -169,6 +201,7 @@ module Program =
                             let key = Console.ReadKey(true)
 
                             if key.Key = ConsoleKey.Q then
+                                quitRequested <- true
                                 running <- false
 
                         lastTick <- DateTime.UtcNow
@@ -180,7 +213,9 @@ module Program =
                             let key = Console.ReadKey(true)
 
                             match keyToAction key with
-                            | Some "quit" -> running <- false
+                            | Some "quit" ->
+                                quitRequested <- true
+                                running <- false
                             | Some "restart" when state.Status = GameOver -> restartRequested <- true
                             | Some action when state.Status = Playing ->
                                 state <- applyGameplayInput drawNext action state
@@ -206,4 +241,7 @@ module Program =
                 0
             finally
                 Console.CursorVisible <- true
-                Console.Write("\u001b[0m")
+                if quitRequested then
+                    Console.Write("\u001b[0m\u001b[2J\u001b[H")
+                else
+                    Console.Write("\u001b[0m")
