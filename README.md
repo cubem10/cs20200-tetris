@@ -1,14 +1,10 @@
 # cs20200-tetris
 
-Console Tetris implemented in F# from `project_proposal.pdf`.
-
-## Run
-
-```bash
-dotnet run --project src/Tetris.Console/Tetris.Console.fsproj
-```
+Console Tetris implemented in F#.
 
 ## How to Play
+
+To play, use binary from releases tab.
 
 Move and rotate the falling tetrominoes to fill horizontal rows. Completed rows
 clear from the board and increase your score. The game ends when a new piece
@@ -65,6 +61,12 @@ piece will land if you hard-drop it.
 - The LLM was not able to find out graphical glitches correctly. It did not
   handle ANSI clears, newlines, cached frames, and resize behavior correctly at
   first.
+
+## Run
+
+```bash
+dotnet run --project src/Tetris.Console/Tetris.Console.fsproj
+```
 
 ## Test
 
