@@ -243,6 +243,15 @@ module Tests =
         let locked = Game.advanceTime (TimeSpan.FromSeconds 0.02) (provider [ T ]) stillWaiting
         Assert.equal I locked.Current.Kind "Piece locks when lock delay expires."
 
+    let longElapsedFrameStopsAtLockDelay () =
+        let afterLongFrame = Game.create O I |> Game.advanceTime (TimeSpan.FromSeconds 60.0) (provider [ T ])
+
+        Assert.equal O afterLongFrame.Current.Kind "A long frame does not skip past the resting current piece."
+        Assert.equal 18 afterLongFrame.Current.Row "The current piece falls to its resting row."
+        Assert.equal I afterLongFrame.Next "The next piece is not consumed before the lock delay expires."
+        Assert.equal 0 afterLongFrame.Board.Count "The resting piece is not locked during the same long fall frame."
+        Assert.isTrue (Option.isSome afterLongFrame.LockDelay) "A long frame starts lock delay instead of locking immediately."
+
     let lockDelayResetsAreLimitedAndCanExitDelay () =
         let delayed =
             { Game.create O I with
@@ -273,6 +282,69 @@ module Tests =
         Assert.equal (Some(TimeSpan.FromSeconds 0.1)) moved.LockDelay "Move reset stops after 15 resets."
         Assert.equal Constants.MaxLockResets moved.LockResetCount "Reset count does not exceed 15."
 
+    let movingOffLedgePreventsStaleLockExpiry () =
+        let delayed =
+            { Game.create O I with
+                Board = board [ p 18 4 ] J
+                Current =
+                    { Kind = O
+                      Rotation = State0
+                      Row = 16
+                      Col = 4 }
+                LockDelay = Some(TimeSpan.FromSeconds 0.01)
+                LockResetCount = 0 }
+
+        let movedThenTicked =
+            delayed
+            |> Game.moveRight
+            |> Game.advanceTime (TimeSpan.FromSeconds 0.2) (provider [ T ])
+
+        Assert.equal O movedThenTicked.Current.Kind "The current piece remains active after moving off a ledge."
+        Assert.equal 16 movedThenTicked.Current.Row "A stale expired lock timer does not force a lock."
+        Assert.equal 5 movedThenTicked.Current.Col "The successful move is preserved."
+        Assert.equal None movedThenTicked.LockDelay "The piece stays out of lock delay while it can fall."
+        Assert.equal 1 movedThenTicked.Board.Count "Only the original support block remains locked."
+
+    let hardDropDuringLockDelayClearsTimingState () =
+        let delayed =
+            { Game.create O T with
+                Current =
+                    { Kind = O
+                      Rotation = State0
+                      Row = 18
+                      Col = 4 }
+                LockDelay = Some(TimeSpan.FromSeconds 0.01)
+                LockResetCount = 14
+                FallAccumulator = TimeSpan.FromSeconds 0.74 }
+
+        let afterHardDrop = Game.hardDrop (provider [ S ]) delayed
+        let afterSameFrameTick = Game.advanceTime (TimeSpan.FromSeconds 0.01) (provider [ Z ]) afterHardDrop
+
+        Assert.equal TimeSpan.Zero afterHardDrop.FallAccumulator "Old fall accumulation is cleared immediately after hard drop."
+        Assert.equal T afterSameFrameTick.Current.Kind "Hard drop spawns exactly one next current piece."
+        Assert.equal S afterSameFrameTick.Next "Hard drop consumes exactly one new next piece."
+        Assert.equal 4 afterSameFrameTick.Board.Count "The hard-dropped piece is locked exactly once."
+        Assert.equal None afterSameFrameTick.LockDelay "Old lock-delay state is cleared after hard drop."
+        Assert.equal 0 afterSameFrameTick.LockResetCount "Old lock reset count is cleared after hard drop."
+        Assert.equal (TimeSpan.FromSeconds 0.01) afterSameFrameTick.FallAccumulator "Only the new tick elapsed time is accumulated after hard drop."
+
+    let holdDuringLockDelayClearsTimingState () =
+        let delayed =
+            { Game.create I O with
+                LockDelay = Some(TimeSpan.FromSeconds 0.01)
+                LockResetCount = 14
+                FallAccumulator = TimeSpan.FromSeconds 0.74 }
+
+        let afterHold = Game.hold (provider [ T ]) delayed
+
+        Assert.equal O afterHold.Current.Kind "Hold replaces the current piece with the previous next piece."
+        Assert.equal T afterHold.Next "Hold into an empty slot consumes exactly one new next piece."
+        Assert.equal (Some I) afterHold.Hold "The old current piece is held instead of being locked."
+        Assert.equal 0 afterHold.Board.Count "Hold does not lock the old current piece."
+        Assert.equal None afterHold.LockDelay "Old lock-delay state is cleared after hold."
+        Assert.equal 0 afterHold.LockResetCount "Old lock reset count is cleared after hold."
+        Assert.equal TimeSpan.Zero afterHold.FallAccumulator "Old fall accumulation is cleared after hold."
+
     let gameOverOccursWhenNextSpawnIsBlocked () =
         let blockedSpawnBoard = board [ p 0 4 ] Z
 
@@ -287,6 +359,32 @@ module Tests =
             |> Game.hardDrop (provider [ I ])
 
         Assert.equal GameOver over.Status "Game ends when the new current piece cannot spawn."
+
+    let gameOverIgnoresQueuedInputsAndElapsedTime () =
+        let blockedSpawnBoard = board [ p 0 4 ] Z
+
+        let over =
+            { Game.create O T with
+                Board = blockedSpawnBoard
+                Current =
+                    { Kind = O
+                      Rotation = State0
+                      Row = 18
+                      Col = 4 } }
+            |> Game.hardDrop (provider [ I ])
+
+        let afterQueuedActions =
+            over
+            |> Game.moveLeft
+            |> Game.moveRight
+            |> Game.softDrop
+            |> Game.rotateClockwise
+            |> Game.hardDrop (provider [ S ])
+            |> Game.hold (provider [ Z ])
+            |> Game.advanceTime (TimeSpan.FromSeconds 10.0) (provider [ J ])
+
+        Assert.equal GameOver over.Status "Test setup reaches game over."
+        Assert.equal over afterQueuedActions "Game-over state ignores queued gameplay actions and elapsed time."
 
     let randomGeneratorProducesTetrominoKinds () =
         let draw = PieceGeneration.randomGenerator (Random 123)
@@ -307,8 +405,13 @@ module Program =
               "Line clearing and scoring work", Tests.lineClearingAndScoringWork
               "Hold stores, swaps, and locks once", Tests.holdStoresSwapsAndLocksOncePerPiece
               "Automatic falling and lock delay work", Tests.automaticFallingAndLockDelayWork
+              "Long elapsed frame stops at lock delay", Tests.longElapsedFrameStopsAtLockDelay
               "Lock delay resets are limited and can exit", Tests.lockDelayResetsAreLimitedAndCanExitDelay
+              "Moving off ledge prevents stale lock expiry", Tests.movingOffLedgePreventsStaleLockExpiry
+              "Hard drop during lock delay clears timing state", Tests.hardDropDuringLockDelayClearsTimingState
+              "Hold during lock delay clears timing state", Tests.holdDuringLockDelayClearsTimingState
               "Game over occurs when next spawn is blocked", Tests.gameOverOccursWhenNextSpawnIsBlocked
+              "Game over ignores queued inputs and elapsed time", Tests.gameOverIgnoresQueuedInputsAndElapsedTime
               "Random generator produces tetromino kinds", Tests.randomGeneratorProducesTetrominoKinds ]
 
         let mutable failures = 0
