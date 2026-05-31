@@ -44,6 +44,16 @@ Input polling is an implementation detail: normal gameplay checks queued keys ab
 every 25 ms, and the undersized-terminal pause screen checks for `Q` about every
 50 ms. 
 
+## LLM Usage
+
+- I used the LLM to write the basic skeleton and help fix the console rendering
+  code, ghost piece, tests, README text, and build commands.
+- I had to reprompt when the screen did not redraw correctly, such as stale
+  `NEXT` blocks and resize messages that were hidden or misaligned.
+- The LLM was not able to find out graphical glitches correctly. It did not
+  handle ANSI clears, newlines, cached frames, and resize behavior correctly at
+  first.
+
 ## Test
 
 ```bash
