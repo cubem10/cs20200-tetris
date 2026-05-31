@@ -5,6 +5,7 @@ Console Tetris implemented in F#.
 ## How to Play
 
 To play, use binary from releases tab.
+If you're using an unsupported platform, please follow the instructions in [Run](#run).
 
 Move and rotate the falling tetrominoes to fill horizontal rows. Completed rows
 clear from the board and increase your score. The game ends when a new piece
@@ -63,6 +64,9 @@ piece will land if you hard-drop it.
   first.
 
 ## Run
+
+This project requires .NET 10 SDK to build and run.
+You can download .NET 10 SDK from [dotnet.microsoft.com](https://dotnet.microsoft.com/en-us/download/dotnet/10.0).
 
 ```bash
 dotnet run --project src/Tetris.Console/Tetris.Console.fsproj
