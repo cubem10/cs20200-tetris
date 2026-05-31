@@ -62,6 +62,7 @@ piece will land if you hard-drop it.
 - The LLM was not able to find out graphical glitches correctly. It did not
   handle ANSI clears, newlines, cached frames, and resize behavior correctly at
   first.
+- LLM was not able to find out user interaction-related glitches.
 
 ## Run
 

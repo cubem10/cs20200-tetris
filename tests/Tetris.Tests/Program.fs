@@ -32,6 +32,17 @@ module Helpers =
 
     let cellSet cells = Set.ofList cells
 
+    let ghostCells state =
+        let rec drop (piece: ActivePiece) =
+            let next = { piece with Row = piece.Row + 1 }
+
+            if Board.canPlace state.Board next then
+                drop next
+            else
+                piece
+
+        drop state.Current |> Piece.absoluteCells |> cellSet
+
 module Tests =
     open Helpers
 
@@ -281,6 +292,44 @@ module Tests =
         let moved = Game.moveLeft maxed
         Assert.equal (Some(TimeSpan.FromSeconds 0.1)) moved.LockDelay "Move reset stops after 15 resets."
         Assert.equal Constants.MaxLockResets moved.LockResetCount "Reset count does not exceed 15."
+        Assert.equal maxed.Current moved.Current "Capped lock-delay movement is ignored."
+
+    let cappedRotationFallsToGhostLanding () =
+        let cappedFalling =
+            { Game.create T J with
+                Current =
+                    { Kind = T
+                      Rotation = State0
+                      Row = 17
+                      Col = 3 }
+                LockResetCount = Constants.MaxLockResets }
+
+        let expectedLanding = ghostCells cappedFalling
+
+        let afterIgnoredRotate = Game.rotateClockwise cappedFalling
+        Assert.equal cappedFalling.Current afterIgnoredRotate.Current "Capped rotation cannot kick into a grounded pop position."
+
+        let afterFall = Game.advanceTime Constants.FallInterval (provider [ O ]) afterIgnoredRotate
+        Assert.equal expectedLanding (Game.currentCells afterFall |> cellSet) "The capped piece falls to the ghost landing."
+        Assert.isTrue (Option.isSome afterFall.LockDelay) "The landed capped piece enters lock delay."
+
+    let heldRotationCannotStallForever () =
+        let draw = provider [ O; I; S; Z ]
+        let frameTime = TimeSpan.FromMilliseconds 25.0
+
+        let mutable state =
+            { Game.create T J with
+                Current =
+                    { Kind = T
+                      Rotation = State0
+                      Row = 16
+                      Col = 3 } }
+
+        for _ in 1 .. 400 do
+            state <- state |> Game.rotateClockwise |> Game.advanceTime frameTime draw
+
+        Assert.equal J state.Current.Kind "Held rotation eventually locks the grounded piece."
+        Assert.isTrue (state.Board.Count >= 4) "The spun piece is locked onto the board."
 
     let movingOffLedgePreventsStaleLockExpiry () =
         let delayed =
@@ -407,6 +456,8 @@ module Program =
               "Automatic falling and lock delay work", Tests.automaticFallingAndLockDelayWork
               "Long elapsed frame stops at lock delay", Tests.longElapsedFrameStopsAtLockDelay
               "Lock delay resets are limited and can exit", Tests.lockDelayResetsAreLimitedAndCanExitDelay
+              "Capped rotation falls to ghost landing", Tests.cappedRotationFallsToGhostLanding
+              "Held rotation cannot stall forever", Tests.heldRotationCannotStallForever
               "Moving off ledge prevents stale lock expiry", Tests.movingOffLedgePreventsStaleLockExpiry
               "Hard drop during lock delay clears timing state", Tests.hardDropDuringLockDelayClearsTimingState
               "Hold during lock delay clears timing state", Tests.holdDuringLockDelayClearsTimingState
