@@ -61,6 +61,12 @@ module Program =
             Console.CursorVisible <- false
             Console.Write("\u001b[2J")
 
+            let advanceToNow () =
+                let now = DateTime.UtcNow
+                let elapsed = now - lastTick
+                lastTick <- now
+                state <- Game.advanceTime elapsed drawNext state
+
             try
                 while running do
                     let currentTerminalSize = terminalSize ()
@@ -86,9 +92,12 @@ module Program =
                         lastTick <- DateTime.UtcNow
                         Thread.Sleep 50
                     else
+                        advanceToNow ()
+
                         let mutable restartRequested = false
 
-                        while Console.KeyAvailable do
+                        while running && Console.KeyAvailable do
+                            advanceToNow ()
                             let key = Console.ReadKey(true)
 
                             match keyToAction key with
@@ -102,12 +111,6 @@ module Program =
 
                         if restartRequested then
                             state <- Game.create (drawNext()) (drawNext())
-
-                        let now = DateTime.UtcNow
-                        let elapsed = now - lastTick
-                        lastTick <- now
-
-                        state <- Game.advanceTime elapsed drawNext state
 
                         let frame = Renderer.render state
 
