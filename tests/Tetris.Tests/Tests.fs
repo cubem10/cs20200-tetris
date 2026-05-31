@@ -300,6 +300,31 @@ module Tests =
         Assert.equal J state.Current.Kind "Capped rotation locks when the original delay expires."
         Assert.equal 4 state.Board.Count "The capped piece is locked after the original delay expires."
 
+    let cappedPieceGetsNewDelayAfterLandingAgain () =
+        let cappedOnLedge =
+            { Game.create O I with
+                Board = board [ p 18 4 ] J
+                Current =
+                    { Kind = O
+                      Rotation = State0
+                      Row = 16
+                      Col = 4 }
+                LockDelay = Some(TimeSpan.FromSeconds 0.1)
+                LockResetCount = Constants.MaxLockResets }
+
+        let landedAgain =
+            cappedOnLedge
+            |> Game.moveRight
+            |> Game.advanceTime Constants.FallInterval (provider [ T ])
+            |> Game.advanceTime Constants.FallInterval (provider [ S ])
+
+        Assert.equal O landedAgain.Current.Kind "The capped piece remains current after landing again."
+        Assert.equal 18 landedAgain.Current.Row "The capped piece lands on the floor after leaving the ledge."
+        Assert.equal (Some Constants.LockDelay) landedAgain.LockDelay "A new lock delay begins when a capped piece lands again."
+        Assert.equal Constants.MaxLockResets landedAgain.LockResetCount "The reset count remains capped after landing again."
+        Assert.equal Playing landedAgain.Status "Landing again after the reset cap does not immediately lock the piece."
+        Assert.equal 1 landedAgain.Board.Count "The capped piece is not locked until the new delay expires."
+
     let movingOffLedgePreventsStaleLockExpiry () =
         let delayed =
             { Game.create O I with

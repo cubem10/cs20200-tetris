@@ -67,11 +67,7 @@ module Game =
             && not (canMoveDown state.Board state.Current)
         then
             { state with
-                LockDelay =
-                    if state.LockResetCount >= Constants.MaxLockResets then
-                        Some TimeSpan.Zero
-                    else
-                        Some Constants.LockDelay
+                LockDelay = Some Constants.LockDelay
                 FallAccumulator = TimeSpan.Zero }
         else
             state

@@ -17,6 +17,7 @@ module Program =
               "Lock delay resets are limited and can exit", Tests.lockDelayResetsAreLimitedAndCanExitDelay
               "Capped rotation is allowed without resetting delay", Tests.cappedRotationIsAllowedWithoutResettingDelay
               "Capped resting rotation cannot extend delay", Tests.cappedRestingRotationCannotExtendDelay
+              "Capped piece gets new delay after landing again", Tests.cappedPieceGetsNewDelayAfterLandingAgain
               "Moving off ledge prevents stale lock expiry", Tests.movingOffLedgePreventsStaleLockExpiry
               "Hard drop during lock delay clears timing state", Tests.hardDropDuringLockDelayClearsTimingState
               "Hold during lock delay clears timing state", Tests.holdDuringLockDelayClearsTimingState
