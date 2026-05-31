@@ -23,6 +23,7 @@ module Program =
               "Hold during lock delay clears timing state", Tests.holdDuringLockDelayClearsTimingState
               "Game over occurs when next spawn is blocked", Tests.gameOverOccursWhenNextSpawnIsBlocked
               "Game over ignores queued inputs and elapsed time", Tests.gameOverIgnoresQueuedInputsAndElapsedTime
+              "Game over render does not draw failed spawn", Tests.gameOverRenderDoesNotDrawFailedSpawn
               "Random generator produces tetromino kinds", Tests.randomGeneratorProducesTetrominoKinds ]
 
         let mutable failures = 0

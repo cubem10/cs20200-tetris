@@ -4,8 +4,8 @@ Console Tetris implemented in F#.
 
 ## How to Play
 
-To play, use binary from releases tab.
-If you're using an unsupported platform, please follow the instructions in [Run](#run).
+Start the game with the command in [Run](#run). If a release binary is available
+for your platform, you can use that instead.
 
 Move and rotate the falling tetrominoes to fill horizontal rows. Completed rows
 clear from the board and increase your score. The game ends when a new piece

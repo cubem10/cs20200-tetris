@@ -116,7 +116,12 @@ module Renderer =
 
     let render state =
         let info = infoLines state
-        let currentOverlay = pieceOverlay state.Current
+        let currentOverlay =
+            if state.Status = Playing then
+                pieceOverlay state.Current
+            else
+                Map.empty
+
         let ghostOverlay = ghostPieceOverlay state
         let builder = StringBuilder()
 

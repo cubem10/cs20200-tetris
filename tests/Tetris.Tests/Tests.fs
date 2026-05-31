@@ -1,6 +1,7 @@
 namespace Tetris.Tests
 
 open System
+open Tetris.Console
 open Tetris.Core
 
 module Tests =
@@ -428,6 +429,17 @@ module Tests =
 
         Assert.equal GameOver over.Status "Test setup reaches game over."
         Assert.equal over afterQueuedActions "Game-over state ignores queued gameplay actions and elapsed time."
+
+    let gameOverRenderDoesNotDrawFailedSpawn () =
+        let over =
+            { Game.create O I with
+                Board = board [ p 0 4 ] Z
+                Status = GameOver }
+
+        let frame = Renderer.render over
+
+        Assert.isTrue (frame.Contains("\u001b[31m██\u001b[0m")) "The locked block that caused game over is still rendered."
+        Assert.isFalse (frame.Contains("\u001b[33m██\u001b[0m")) "The failed O spawn is not rendered as an active piece."
 
     let randomGeneratorProducesTetrominoKinds () =
         let draw = PieceGeneration.randomGenerator (Random 123)

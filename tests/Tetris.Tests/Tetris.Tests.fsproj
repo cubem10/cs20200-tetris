@@ -12,6 +12,7 @@
   <ItemGroup>
     <Compile Include="Assert.fs" />
     <Compile Include="Helpers.fs" />
+    <Compile Include="../../src/Tetris.Console/Renderer.fs" Link="Renderer.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
