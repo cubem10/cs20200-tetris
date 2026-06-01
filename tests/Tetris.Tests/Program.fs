@@ -18,10 +18,12 @@ module Program =
               "Capped rotation is allowed without resetting delay", Tests.cappedRotationIsAllowedWithoutResettingDelay
               "Capped resting rotation cannot extend delay", Tests.cappedRestingRotationCannotExtendDelay
               "Capped piece gets new delay after landing again", Tests.cappedPieceGetsNewDelayAfterLandingAgain
+              "Manual landing after leaving lock delay preserves reset count", Tests.manualLandingAfterLeavingLockDelayPreservesResetCount
               "Floor kick rotation cannot stall after reset cap", Tests.floorKickRotationCannotStallAfterResetCap
               "Moving off ledge prevents stale lock expiry", Tests.movingOffLedgePreventsStaleLockExpiry
               "Hard drop during lock delay clears timing state", Tests.hardDropDuringLockDelayClearsTimingState
               "Hold during lock delay clears timing state", Tests.holdDuringLockDelayClearsTimingState
+              "Spawned resting piece starts lock delay", Tests.spawnedRestingPieceStartsLockDelay
               "Game over occurs when next spawn is blocked", Tests.gameOverOccursWhenNextSpawnIsBlocked
               "Game over ignores queued inputs and elapsed time", Tests.gameOverIgnoresQueuedInputsAndElapsedTime
               "Game over render does not draw failed spawn", Tests.gameOverRenderDoesNotDrawFailedSpawn

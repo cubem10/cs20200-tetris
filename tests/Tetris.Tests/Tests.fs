@@ -326,6 +326,44 @@ module Tests =
         Assert.equal Playing landedAgain.Status "Landing again after the reset cap does not immediately lock the piece."
         Assert.equal 1 landedAgain.Board.Count "The capped piece is not locked until the new delay expires."
 
+    let manualLandingAfterLeavingLockDelayPreservesResetCount () =
+        let delayed =
+            { Game.create O I with
+                Board = board [ p 18 4 ] J
+                Current =
+                    { Kind = O
+                      Rotation = State0
+                      Row = 16
+                      Col = 4 }
+                LockDelay = Some(TimeSpan.FromSeconds 0.1)
+                LockResetCount = 4 }
+
+        let offLedge = Game.moveRight delayed
+        Assert.equal None offLedge.LockDelay "Moving off a ledge exits lock delay before the manual landing."
+        Assert.equal 5 offLedge.LockResetCount "The move-reset count increments only for the lock-delay move."
+
+        let manuallyLanded =
+            offLedge
+            |> Game.softDrop
+            |> Game.softDrop
+
+        Assert.equal 18 manuallyLanded.Current.Row "Soft drop can manually land a piece after it leaves a ledge."
+        Assert.equal (Some Constants.LockDelay) manuallyLanded.LockDelay "Manual landing starts a new full lock delay."
+        Assert.equal 5 manuallyLanded.LockResetCount "Entering a new lock delay preserves the reset count."
+
+        let cappedOffLedge =
+            { delayed with LockResetCount = Constants.MaxLockResets }
+            |> Game.moveRight
+
+        let cappedManualLanding =
+            cappedOffLedge
+            |> Game.softDrop
+            |> Game.softDrop
+
+        Assert.equal (Some TimeSpan.Zero) cappedManualLanding.LockDelay "A capped piece cannot start a new manual delay after using all resets."
+        Assert.equal Constants.MaxLockResets cappedManualLanding.LockResetCount "Manual landing does not exceed the reset cap."
+        Assert.equal Playing cappedManualLanding.Status "A zero-delay manual landing locks on the next game tick."
+
     let floorKickRotationCannotStallAfterResetCap () =
         let draw = provider [ T ]
         let frameTime = TimeSpan.FromMilliseconds 25.0
@@ -408,6 +446,32 @@ module Tests =
         Assert.equal None afterHold.LockDelay "Old lock-delay state is cleared after hold."
         Assert.equal 0 afterHold.LockResetCount "Old lock reset count is cleared after hold."
         Assert.equal TimeSpan.Zero afterHold.FallAccumulator "Old fall accumulation is cleared after hold."
+
+    let spawnedRestingPieceStartsLockDelay () =
+        let supportUnderSpawn = board [ p 2 4; p 2 5 ] J
+
+        let afterLock =
+            { Game.create O O with
+                Board = supportUnderSpawn
+                Current =
+                    { Kind = O
+                      Rotation = State0
+                      Row = 18
+                      Col = 0 } }
+            |> Game.hardDrop (provider [ T ])
+
+        Assert.equal Playing afterLock.Status "A piece that fits at spawn remains playable."
+        Assert.equal O afterLock.Current.Kind "The next piece becomes current after the previous piece locks."
+        Assert.equal 0 afterLock.Current.Row "The spawned piece starts at the top row."
+        Assert.equal (Some Constants.LockDelay) afterLock.LockDelay "A spawned piece that cannot fall starts lock delay immediately."
+        Assert.equal 0 afterLock.LockResetCount "A newly spawned resting piece starts with a fresh reset count."
+
+        let beforeExpiry = Game.advanceTime (TimeSpan.FromSeconds 0.49) (provider [ S ]) afterLock
+        Assert.equal O beforeExpiry.Current.Kind "The spawned piece remains active before its lock delay expires."
+        Assert.equal Playing beforeExpiry.Status "The game remains playable during the spawned piece's lock delay."
+
+        let locked = Game.advanceTime (TimeSpan.FromSeconds 0.02) (provider [ Z ]) beforeExpiry
+        Assert.equal T locked.Current.Kind "The spawned piece locks when its immediate lock delay expires."
 
     let gameOverOccursWhenNextSpawnIsBlocked () =
         let blockedSpawnBoard = board [ p 0 4 ] Z

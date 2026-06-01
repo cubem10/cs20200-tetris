@@ -78,19 +78,13 @@ module Game =
             && Option.isNone state.LockDelay
             && not (canMoveDown state.Board state.Current)
         then
-            if state.LockResetCount >= Constants.MaxLockResets then
-                { state with
-                    LockDelay = Some TimeSpan.Zero
-                    FallAccumulator = TimeSpan.Zero }
-            elif state.LockResetCount > 0 then
-                { state with
-                    LockDelay = Some Constants.LockDelay
-                    LockResetCount = state.LockResetCount + 1
-                    FallAccumulator = TimeSpan.Zero }
-            else
-                { state with
-                    LockDelay = Some Constants.LockDelay
-                    FallAccumulator = TimeSpan.Zero }
+            { state with
+                LockDelay =
+                    if state.LockResetCount >= Constants.MaxLockResets then
+                        Some TimeSpan.Zero
+                    else
+                        Some Constants.LockDelay
+                FallAccumulator = TimeSpan.Zero }
         else
             state
 
@@ -162,11 +156,24 @@ module Game =
     let private spawnFromNext nextKind =
         Piece.spawn nextKind
 
+    let private spawnStatusAndLockDelay board spawned =
+        if Board.canPlace board spawned then
+            let lockDelay =
+                if canMoveDown board spawned then
+                    None
+                else
+                    Some Constants.LockDelay
+
+            Playing, lockDelay
+        else
+            GameOver, None
+
     let private finishLock drawNext state =
         let boardWithPiece = Board.lockPiece state.Board state.Current
         let cleared, boardAfterClear = Board.clearCompletedLines boardWithPiece
         let spawned = spawnFromNext state.Next
         let next = drawNext()
+        let status, lockDelay = spawnStatusAndLockDelay boardAfterClear spawned
 
         { state with
             Board = boardAfterClear
@@ -175,12 +182,8 @@ module Game =
             HoldUsed = false
             Score = state.Score + scoreForClearedLines cleared
             Lines = state.Lines + cleared
-            Status =
-                if Board.canPlace boardAfterClear spawned then
-                    Playing
-                else
-                    GameOver
-            LockDelay = None
+            Status = status
+            LockDelay = lockDelay
             LockResetCount = 0
             FallAccumulator = TimeSpan.Zero }
 
@@ -199,33 +202,27 @@ module Game =
             | None ->
                 let spawned = spawnFromNext state.Next
                 let next = drawNext()
+                let status, lockDelay = spawnStatusAndLockDelay state.Board spawned
 
                 { state with
                     Current = spawned
                     Next = next
                     Hold = Some state.Current.Kind
                     HoldUsed = true
-                    Status =
-                        if Board.canPlace state.Board spawned then
-                            Playing
-                        else
-                            GameOver
-                    LockDelay = None
+                    Status = status
+                    LockDelay = lockDelay
                     LockResetCount = 0
                     FallAccumulator = TimeSpan.Zero }
             | Some held ->
                 let spawned = spawnFromNext held
+                let status, lockDelay = spawnStatusAndLockDelay state.Board spawned
 
                 { state with
                     Current = spawned
                     Hold = Some state.Current.Kind
                     HoldUsed = true
-                    Status =
-                        if Board.canPlace state.Board spawned then
-                            Playing
-                        else
-                            GameOver
-                    LockDelay = None
+                    Status = status
+                    LockDelay = lockDelay
                     LockResetCount = 0
                     FallAccumulator = TimeSpan.Zero }
 
