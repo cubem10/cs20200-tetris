@@ -57,6 +57,7 @@ module Program =
             let mutable lastRender = ""
             let mutable lastTick = DateTime.UtcNow
             let mutable lastTerminalSize = terminalSize ()
+            let mutable wasPausedForSmallTerminal = false
 
             Console.CursorVisible <- false
             Console.Write("\u001b[2J")
@@ -77,6 +78,7 @@ module Program =
                         lastTerminalSize <- currentTerminalSize
 
                     if not (terminalIsLargeEnough ()) then
+                        wasPausedForSmallTerminal <- true
                         let message = Renderer.renderSmallTerminal ()
 
                         Console.Write(message)
@@ -90,35 +92,50 @@ module Program =
                                 running <- false
 
                         lastTick <- DateTime.UtcNow
-                        Thread.Sleep 50
+                        if running then
+                            Thread.Sleep 50
                     else
-                        advanceToNow ()
+                        if wasPausedForSmallTerminal then
+                            wasPausedForSmallTerminal <- false
 
-                        let mutable restartRequested = false
+                            while running && Console.KeyAvailable do
+                                let key = Console.ReadKey(true)
 
-                        while running && Console.KeyAvailable do
+                                if key.Key = ConsoleKey.Q then
+                                    quitRequested <- true
+                                    running <- false
+
+                            lastTick <- DateTime.UtcNow
+
+                        if running then
                             advanceToNow ()
-                            let key = Console.ReadKey(true)
 
-                            match keyToAction key with
-                            | Some "quit" ->
-                                quitRequested <- true
-                                running <- false
-                            | Some "restart" when state.Status = GameOver -> restartRequested <- true
-                            | Some action when state.Status = Playing ->
-                                state <- applyGameplayInput drawNext action state
-                            | _ -> ()
+                            let mutable restartRequested = false
 
-                        if restartRequested then
-                            state <- Game.create (drawNext()) (drawNext())
+                            while running && Console.KeyAvailable do
+                                advanceToNow ()
+                                let key = Console.ReadKey(true)
 
-                        let frame = Renderer.render state
+                                match keyToAction key with
+                                | Some "quit" ->
+                                    quitRequested <- true
+                                    running <- false
+                                | Some "restart" when state.Status = GameOver -> restartRequested <- true
+                                | Some action when state.Status = Playing ->
+                                    state <- applyGameplayInput drawNext action state
+                                | _ -> ()
 
-                        if frame <> lastRender then
-                            Console.Write(frame)
-                            lastRender <- frame
+                            if running && restartRequested then
+                                state <- Game.create (drawNext()) (drawNext())
 
-                        Thread.Sleep 25
+                            if running then
+                                let frame = Renderer.render state
+
+                                if frame <> lastRender then
+                                    Console.Write(frame)
+                                    lastRender <- frame
+
+                                Thread.Sleep 25
 
                 0
             finally
