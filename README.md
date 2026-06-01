@@ -52,6 +52,11 @@ piece will land if you hard-drop it.
   during the undersized-terminal pause screen. The proposal does not specify
   polling timing, so these values are implementation details chosen to keep input
   responsive without constantly redrawing the terminal.
+- After the lock-delay reset count reaches 15, successful movement and rotation
+  inputs are still applied, but an input that creates a new resting position
+  starts a zero-length lock delay and locks on the next game tick. This prevents
+  floor-kick rotations or manual soft drops from creating extra lock-delay
+  extensions after the proposal's reset cap has already been reached.
 
 ## LLM Usage
 
